@@ -19,7 +19,6 @@ exports.storeLead = async (req, res) => {
       fullName,
       email,
       mobileNumber,
-      // Optional LeadDetails fields
       occupationCategory,
       designation,
       organization,
@@ -49,7 +48,6 @@ exports.storeLead = async (req, res) => {
       { transaction }
     );
 
-    // 2. Check and store extended LeadDetails if provided
     const detailPayload = {
       occupationCategory,
       designation,
@@ -82,12 +80,9 @@ exports.storeLead = async (req, res) => {
       );
     }
 
-    // Commit database transaction
     await transaction.commit();
 
     console.log(`[LEADS] Customer Registration Lead #${lead.id} (${lead.fullName}) saved to database.`);
-
-    // 3. Concurrently dispatch Excel append, Thank-You Email, and Google Sheet sync to "Customer Registration"
     const [excelSettled, emailSettled, sheetSettled] = await Promise.allSettled([
       appendLeadToExcel(lead, leadDetail || {}, "Customer Registration"),
       sendLeadThankYouEmail(lead, leadDetail || {}),
@@ -134,7 +129,6 @@ exports.requestCallback = async (req, res) => {
     const { fullName, email, mobileNumber } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 1. Create Lead in Lead model only
     const lead = await Lead.create({
       fullName: fullName.trim(),
       email: normalizedEmail,

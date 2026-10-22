@@ -30,7 +30,7 @@ exports.storeLeadValidator = [
     .notEmpty()
     .withMessage("Mobile number is required"),
 
-  // Optional extended details
+
   body("occupationCategory").optional({ nullable: true }).isString(),
   body("designation").optional({ nullable: true }).isString(),
   body("organization").optional({ nullable: true }).isString(),
