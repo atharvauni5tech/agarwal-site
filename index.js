@@ -117,17 +117,18 @@ logger.stream = {
 };
 
 // ------------------------------
-// MongoDB Connection
+// MySQL / Sequelize Connection
 // ------------------------------
-/* try {
-  mongoose.connect(process.env.MONGODB_URL);
+const db = require("./models");
 
-  mongoose.connection.once("open", () => {
-    console.log("MongoDB connected");
+db.sequelize
+  .authenticate()
+  .then(() => {
+    console.log("Database connected successfully.");
+  })
+  .catch((err) => {
+    console.warn("Database connection warning:", err.message);
   });
-} catch (err) {
-  console.error(err);
-}*/
 
 // ------------------------------
 // Start Server

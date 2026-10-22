@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: broker_mysql
+    container_name: agarwalMysql
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
@@ -13,7 +13,7 @@ services:
 
   phpmyadmin:
     image: phpmyadmin:latest
-    container_name: broker_phpmyadmin
+    container_name: agarwalPhpmyadmin
     restart: always
     environment:
       PMA_HOST: mysql
@@ -25,15 +25,5 @@ services:
     depends_on:
       - mysql
 
-  mongodb:
-    image: mongo:latest
-    container_name: broker_mongodb
-    restart: always
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
 volumes:
   mysql_data:
-  mongo_data:
