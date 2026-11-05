@@ -7,18 +7,8 @@ module.exports = {
 
     await queryInterface.bulkInsert('users', [
       {
-        name: 'Atharva Pandharikar',
-        email: 'atharva.pandharikar@uni5.tech',
-        role: 'ADMIN',
-        status: 1,
-        createdBy: null,
-        updatedBy: null,
-        createdAt: now,
-        updatedAt: now
-      },
-      {
-        name: 'Arya Patil',
-        email: 'arya.patil@edba.io',
+        name: 'Agarwal Admin',
+        email: 'paramount@gmail.com',
         role: 'ADMIN',
         status: 1,
         createdBy: null,
@@ -32,8 +22,7 @@ module.exports = {
   async down(queryInterface, Sequelize) {
     await queryInterface.bulkDelete('users', {
       email: [
-        'atharva.pandharikar@uni5.tech',
-        'arya.patil@edba.io'
+        'paramount@gmail.com'
       ]
     }, {});
   }

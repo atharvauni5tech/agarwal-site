@@ -3,11 +3,22 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
-// ================= STATIC EMAIL CONFIG =================
-const EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com";
-const EMAIL_PORT = 587;
-const EMAIL_FROM = '"Agarwal Reality" <noreply@teradoengineering.com>';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "atharva.pandharikar@uni5.tech";
+// ================= EMAIL CONFIG =================
+const EMAIL_HOST = process.env.EMAIL_HOST || "smtp.hostinger.com";
+const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 465;
+const EMAIL_SECURE = process.env.EMAIL_SECURE !== undefined
+  ? process.env.EMAIL_SECURE === "true"
+  : EMAIL_PORT === 465;
+const EMAIL_FROM = process.env.EMAIL_FROM || '"Agarwal Reality" <no-reply@agarwalgroup.in>';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ;
+
+// ================= THEME COLORS: BRIGHT BRASS & DEEP BRASS =================
+const THEME = {
+  brightBrass: "#C5A059", // Luminous metallic bright brass
+  deepBrass: "#7A5826",   // Rich dark burnished brass
+  brassBg: "#FAF6ED",     // Warm soft brass tint for callouts & highlights
+  brassBorder: "#E8DCC4", // Subtle brass border
+};
 
 const LOGO_PATH = path.join(__dirname, "../../assets/agarwal-logo.png");
 
@@ -25,7 +36,7 @@ const getLogoAttachment = () => {
 };
 
 const logoHeaderHtml = `
-  <div style="background:#ffffff; padding:22px 20px; text-align:center; border-bottom:3px solid #1e3a8a;">
+  <div style="background:#ffffff; padding:22px 20px; text-align:center; border-bottom:3px solid ${THEME.brightBrass};">
     <img src="cid:agarwalLogo" alt="Agarwal Reality" style="max-height:52px; max-width:240px; height:auto; display:inline-block;" />
   </div>
 `;
@@ -33,7 +44,7 @@ const logoHeaderHtml = `
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: false, // true for port 465, false for 587/25
+  secure: EMAIL_SECURE, // true for port 465, false for 587/25
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -65,8 +76,8 @@ exports.sendOtpEmail = async (toEmail, otp) => {
 
               <!-- OTP Box -->
               <div style="text-align:center; margin:30px 0;">
-                <div style="display:inline-block; padding:15px 30px; border:2px dashed #2563eb; border-radius:8px; background:#f0f6ff;">
-                  <span style="font-size:34px; font-weight:bold; letter-spacing:5px; color:#1e40af;">
+                <div style="display:inline-block; padding:15px 30px; border:2px dashed ${THEME.brightBrass}; border-radius:8px; background:${THEME.brassBg};">
+                  <span style="font-size:34px; font-weight:bold; letter-spacing:5px; color:${THEME.deepBrass};">
                     ${otp}
                   </span>
                 </div>
@@ -106,8 +117,8 @@ exports.sendLeadThankYouEmail = async (lead, leadDetail = {}) => {
     const budgetLine = leadDetail.estimatedBudget ? `<li><strong>Estimated Budget:</strong> ${leadDetail.estimatedBudget}</li>` : "";
     const cityLine = leadDetail.city ? `<li><strong>Preferred Location:</strong> ${leadDetail.city}</li>` : "";
     const inquiryDetailsHtml = (configLine || budgetLine || cityLine) ? `
-      <div style="background:#f8fafc; border-left:4px solid #1e3a8a; padding:12px 18px; margin:20px 0; border-radius:4px;">
-        <h4 style="margin:0 0 8px 0; color:#0f172a; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">Summary of Your Preferences</h4>
+      <div style="background:${THEME.brassBg}; border-left:4px solid ${THEME.brightBrass}; border-top:1px solid ${THEME.brassBorder}; border-right:1px solid ${THEME.brassBorder}; border-bottom:1px solid ${THEME.brassBorder}; padding:12px 18px; margin:20px 0; border-radius:4px;">
+        <h4 style="margin:0 0 8px 0; color:${THEME.deepBrass}; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">Summary of Your Preferences</h4>
         <ul style="margin:0; padding-left:18px; color:#475569; font-size:14px; line-height:1.7;">
           ${configLine}
           ${budgetLine}
@@ -192,8 +203,8 @@ exports.sendCallbackRequestEmail = async (lead) => {
                 Thank you for reaching out to <strong>Agarwal Reality</strong>. We have successfully logged your callback request (Reference ID: <strong>#CB-${lead.id}</strong>).
               </p>
 
-              <div style="background:#eff6ff; border-left:4px solid #1e3a8a; padding:16px; border-radius:6px; margin:20px 0;">
-                <p style="margin:0; color:#1e40af; font-size:14px; line-height:1.6; font-weight:500;">
+              <div style="background:${THEME.brassBg}; border-left:4px solid ${THEME.brightBrass}; border-top:1px solid ${THEME.brassBorder}; border-right:1px solid ${THEME.brassBorder}; border-bottom:1px solid ${THEME.brassBorder}; padding:16px; border-radius:6px; margin:20px 0;">
+                <p style="margin:0; color:${THEME.deepBrass}; font-size:14px; line-height:1.6; font-weight:500;">
                   Our customer executive will get in touch with you shortly on your provided contact number <strong>${lead.mobileNumber}</strong> to assist you with complete project details and personalized consultation.
                 </p>
               </div>
@@ -230,14 +241,14 @@ exports.sendCallbackRequestEmail = async (lead) => {
 };
 
 // ================= SEND IMMEDIATE CALLBACK ALERT TO ADMIN =================
-exports.sendAdminCallbackAlertEmail = async (lead) => {
+exports.sendAdminCallbackAlertEmail = async (lead, targetEmail = ADMIN_EMAIL) => {
   try {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     const mailOptions = {
       from: EMAIL_FROM,
-      to: ADMIN_EMAIL,
-      subject: `🚨 New Callback Request: ${lead.fullName} (${lead.mobileNumber})`,
+      to: targetEmail || ADMIN_EMAIL,
+      subject: `New Callback Request: ${lead.fullName} (${lead.mobileNumber})`,
       attachments: getLogoAttachment(),
       html: `
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#f1f5f9; padding:40px 15px;">
@@ -245,7 +256,7 @@ exports.sendAdminCallbackAlertEmail = async (lead) => {
             ${logoHeaderHtml}
 
             <!-- Alert Header -->
-            <div style="background:#dc2626; padding:12px 25px; text-align:center;">
+            <div style="background:${THEME.deepBrass}; border-bottom:2px solid ${THEME.brightBrass}; padding:12px 25px; text-align:center;">
               <h3 style="color:#ffffff; margin:0; font-size:15px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
                 ⚡ Urgent: Immediate Callback Requested
               </h3>
@@ -268,14 +279,14 @@ exports.sendAdminCallbackAlertEmail = async (lead) => {
                 </tr>
                 <tr>
                   <td style="padding:12px 16px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0;">Mobile Number</td>
-                  <td style="padding:12px 16px; color:#1d4ed8; font-weight:700; border-bottom:1px solid #e2e8f0;">
-                    <a href="tel:${lead.mobileNumber}" style="color:#1d4ed8; text-decoration:none;">${lead.mobileNumber}</a>
+                  <td style="padding:12px 16px; color:${THEME.deepBrass}; font-weight:700; border-bottom:1px solid #e2e8f0;">
+                    <a href="tel:${lead.mobileNumber}" style="color:${THEME.deepBrass}; text-decoration:none;">${lead.mobileNumber}</a>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding:12px 16px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0;">Email Address</td>
                   <td style="padding:12px 16px; color:#0f172a; border-bottom:1px solid #e2e8f0;">
-                    <a href="mailto:${lead.email}" style="color:#1d4ed8; text-decoration:none;">${lead.email}</a>
+                    <a href="mailto:${lead.email}" style="color:${THEME.deepBrass}; text-decoration:none;">${lead.email}</a>
                   </td>
                 </tr>
                 <tr>
@@ -286,7 +297,7 @@ exports.sendAdminCallbackAlertEmail = async (lead) => {
 
               <!-- Call Now Action Button -->
               <div style="text-align:center; margin:25px 0;">
-                <a href="tel:${lead.mobileNumber}" style="display:inline-block; background:#1e3a8a; color:#ffffff; font-weight:700; font-size:15px; padding:12px 30px; border-radius:6px; text-decoration:none; box-shadow:0 4px 10px rgba(30,58,138,0.3);">
+                <a href="tel:${lead.mobileNumber}" style="display:inline-block; background:${THEME.deepBrass}; color:#ffffff; font-weight:700; font-size:15px; padding:12px 30px; border-radius:6px; text-decoration:none; border-bottom:2px solid ${THEME.brightBrass}; box-shadow:0 4px 10px rgba(122,88,38,0.25);">
                   📞 Call Lead Now (${lead.mobileNumber})
                 </a>
               </div>
@@ -303,8 +314,9 @@ exports.sendAdminCallbackAlertEmail = async (lead) => {
       `,
     };
 
+    const recipient = targetEmail || ADMIN_EMAIL;
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin callback alert sent to ${ADMIN_EMAIL}: ${info.messageId}`);
+    console.log(`[EMAIL] Admin callback alert sent to ${recipient}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`[EMAIL] Error sending admin callback alert to ${ADMIN_EMAIL}:`, err.message || err);
@@ -313,14 +325,14 @@ exports.sendAdminCallbackAlertEmail = async (lead) => {
 };
 
 // ================= SEND BROCHURE DOWNLOAD ALERT TO ADMIN ONLY =================
-exports.sendAdminBrochureAlertEmail = async (lead) => {
+exports.sendAdminBrochureAlertEmail = async (lead, targetEmail = ADMIN_EMAIL) => {
   try {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     const mailOptions = {
       from: EMAIL_FROM,
-      to: ADMIN_EMAIL,
-      subject: `📥 New Brochure Download Lead: ${lead.fullName} (${lead.mobileNumber})`,
+      to: targetEmail || ADMIN_EMAIL,
+      subject: `New Brochure Download Lead: ${lead.fullName} (${lead.mobileNumber})`,
       attachments: getLogoAttachment(),
       html: `
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#f1f5f9; padding:40px 15px;">
@@ -328,7 +340,7 @@ exports.sendAdminBrochureAlertEmail = async (lead) => {
             ${logoHeaderHtml}
 
             <!-- Header -->
-            <div style="background:#0f172a; padding:12px 25px; text-align:center;">
+            <div style="background:${THEME.deepBrass}; border-bottom:2px solid ${THEME.brightBrass}; padding:12px 25px; text-align:center;">
               <h3 style="color:#ffffff; margin:0; font-size:15px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
                 📄 Brochure Download Lead Registered
               </h3>
@@ -351,14 +363,14 @@ exports.sendAdminBrochureAlertEmail = async (lead) => {
                 </tr>
                 <tr>
                   <td style="padding:12px 16px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0;">Mobile Number</td>
-                  <td style="padding:12px 16px; color:#1d4ed8; font-weight:700; border-bottom:1px solid #e2e8f0;">
-                    <a href="tel:${lead.mobileNumber}" style="color:#1d4ed8; text-decoration:none;">${lead.mobileNumber}</a>
+                  <td style="padding:12px 16px; color:${THEME.deepBrass}; font-weight:700; border-bottom:1px solid #e2e8f0;">
+                    <a href="tel:${lead.mobileNumber}" style="color:${THEME.deepBrass}; text-decoration:none;">${lead.mobileNumber}</a>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding:12px 16px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0;">Email Address</td>
                   <td style="padding:12px 16px; color:#0f172a; border-bottom:1px solid #e2e8f0;">
-                    <a href="mailto:${lead.email}" style="color:#1d4ed8; text-decoration:none;">${lead.email}</a>
+                    <a href="mailto:${lead.email}" style="color:${THEME.deepBrass}; text-decoration:none;">${lead.email}</a>
                   </td>
                 </tr>
                 <tr>
@@ -369,7 +381,7 @@ exports.sendAdminBrochureAlertEmail = async (lead) => {
 
               <!-- Call Now Action Button -->
               <div style="text-align:center; margin:25px 0;">
-                <a href="tel:${lead.mobileNumber}" style="display:inline-block; background:#0f172a; color:#ffffff; font-weight:700; font-size:15px; padding:12px 30px; border-radius:6px; text-decoration:none; box-shadow:0 4px 10px rgba(15,23,42,0.3);">
+                <a href="tel:${lead.mobileNumber}" style="display:inline-block; background:${THEME.deepBrass}; color:#ffffff; font-weight:700; font-size:15px; padding:12px 30px; border-radius:6px; text-decoration:none; border-bottom:2px solid ${THEME.brightBrass}; box-shadow:0 4px 10px rgba(122,88,38,0.25);">
                   📞 Follow Up with Lead (${lead.mobileNumber})
                 </a>
               </div>
@@ -386,8 +398,9 @@ exports.sendAdminBrochureAlertEmail = async (lead) => {
       `,
     };
 
+    const recipient = targetEmail || ADMIN_EMAIL;
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin brochure download alert sent to ${ADMIN_EMAIL}: ${info.messageId}`);
+    console.log(`[EMAIL] Admin brochure download alert sent to ${recipient}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`[EMAIL] Error sending admin brochure alert to ${ADMIN_EMAIL}:`, err.message || err);
@@ -415,8 +428,8 @@ exports.sendChannelPartnerConfirmationEmail = async (partner) => {
                 Thank you for applying to partner with <strong>Agarwal Reality</strong>. We have successfully registered your Channel Partner application (Reference ID: <strong>#CP-${partner.id}</strong>).
               </p>
 
-              <div style="background:#eff6ff; border-left:4px solid #1e3a8a; padding:16px; border-radius:6px; margin:20px 0;">
-                <p style="margin:0; color:#1e40af; font-size:14px; line-height:1.6; font-weight:500;">
+              <div style="background:${THEME.brassBg}; border-left:4px solid ${THEME.brightBrass}; border-top:1px solid ${THEME.brassBorder}; border-right:1px solid ${THEME.brassBorder}; border-bottom:1px solid ${THEME.brassBorder}; padding:16px; border-radius:6px; margin:20px 0;">
+                <p style="margin:0; color:${THEME.deepBrass}; font-size:14px; line-height:1.6; font-weight:500;">
                   Firm / Company: <strong>${partner.firmOrCompanyName}</strong><br>
                   RERA Reg. No: <strong>${partner.reraRegNo}</strong><br>
                   City of Operation: <strong>${partner.cityOfOperation}</strong>
@@ -453,21 +466,21 @@ exports.sendChannelPartnerConfirmationEmail = async (partner) => {
   }
 };
 
-exports.sendAdminChannelPartnerAlert = async (partner) => {
+exports.sendAdminChannelPartnerAlert = async (partner, targetEmail = ADMIN_EMAIL) => {
   try {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     const mailOptions = {
       from: EMAIL_FROM,
-      to: ADMIN_EMAIL,
-      subject: `🤝 New Channel Partner Registration: ${partner.firmOrCompanyName} (${partner.fullName})`,
+      to: targetEmail || ADMIN_EMAIL,
+      subject: `New Channel Partner Registration: ${partner.firmOrCompanyName} (${partner.fullName})`,
       attachments: getLogoAttachment(),
       html: `
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#f1f5f9; padding:40px 15px;">
           <div style="max-width:580px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.08); border:1px solid #e2e8f0;">
             ${logoHeaderHtml}
 
-            <div style="background:#1e3a8a; padding:12px 25px; text-align:center;">
+            <div style="background:${THEME.deepBrass}; border-bottom:2px solid ${THEME.brightBrass}; padding:12px 25px; text-align:center;">
               <h3 style="color:#ffffff; margin:0; font-size:15px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
                 New Channel Partner Registration
               </h3>
@@ -478,9 +491,9 @@ exports.sendAdminChannelPartnerAlert = async (partner) => {
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569; width:35%;">Partner ID</td><td style="padding:10px 16px; font-weight:700;">#CP-${partner.id}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Full Name</td><td style="padding:10px 16px; font-weight:600;">${partner.fullName}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Firm / Company</td><td style="padding:10px 16px; font-weight:600;">${partner.firmOrCompanyName}</td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">RERA Reg. No</td><td style="padding:10px 16px; font-weight:700; color:#1e40af;">${partner.reraRegNo}</td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${partner.mobileNumber}">${partner.mobileNumber}</a></td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${partner.email}">${partner.email}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">RERA Reg. No</td><td style="padding:10px 16px; font-weight:700; color:${THEME.deepBrass};">${partner.reraRegNo}</td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${partner.mobileNumber}" style="color:${THEME.deepBrass}; font-weight:600; text-decoration:none;">${partner.mobileNumber}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${partner.email}" style="color:${THEME.deepBrass}; text-decoration:none;">${partner.email}</a></td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">City of Operation</td><td style="padding:10px 16px;">${partner.cityOfOperation}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Submitted At</td><td style="padding:10px 16px; color:#64748b;">${timestamp}</td></tr>
               </table>
@@ -494,8 +507,9 @@ exports.sendAdminChannelPartnerAlert = async (partner) => {
       `,
     };
 
+    const recipient = targetEmail || ADMIN_EMAIL;
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin Channel Partner alert sent to ${ADMIN_EMAIL}: ${info.messageId}`);
+    console.log(`[EMAIL] Admin Channel Partner alert sent to ${recipient}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`[EMAIL] Error sending Admin Channel Partner alert to ${ADMIN_EMAIL}:`, err.message || err);
@@ -553,7 +567,7 @@ exports.sendSupplierConfirmationEmail = async (supplier) => {
   }
 };
 
-exports.sendAdminSupplierAlert = async (supplier) => {
+exports.sendAdminSupplierAlert = async (supplier, targetEmail = ADMIN_EMAIL) => {
   try {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
     const categoriesStr = Array.isArray(supplier.serviceCategories)
@@ -562,15 +576,15 @@ exports.sendAdminSupplierAlert = async (supplier) => {
 
     const mailOptions = {
       from: EMAIL_FROM,
-      to: ADMIN_EMAIL,
-      subject: `🏭 New Supplier / Vendor Registration: ${supplier.companyName}`,
+      to: targetEmail || ADMIN_EMAIL,
+      subject: `New Supplier / Vendor Registration: ${supplier.companyName}`,
       attachments: getLogoAttachment(),
       html: `
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#f1f5f9; padding:40px 15px;">
           <div style="max-width:580px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.08); border:1px solid #e2e8f0;">
             ${logoHeaderHtml}
 
-            <div style="background:#0f172a; padding:12px 25px; text-align:center;">
+            <div style="background:${THEME.deepBrass}; border-bottom:2px solid ${THEME.brightBrass}; padding:12px 25px; text-align:center;">
               <h3 style="color:#ffffff; margin:0; font-size:15px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
                 New Supplier Registration
               </h3>
@@ -581,8 +595,8 @@ exports.sendAdminSupplierAlert = async (supplier) => {
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569; width:35%;">Supplier ID</td><td style="padding:10px 16px; font-weight:700;">#SUP-${supplier.id}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Company Name</td><td style="padding:10px 16px; font-weight:600;">${supplier.companyName}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Contact Person</td><td style="padding:10px 16px;">${supplier.supplierName}</td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${supplier.mobileNumber}">${supplier.mobileNumber}</a></td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${supplier.email}">${supplier.email}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${supplier.mobileNumber}" style="color:${THEME.deepBrass}; font-weight:600; text-decoration:none;">${supplier.mobileNumber}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${supplier.email}" style="color:${THEME.deepBrass}; text-decoration:none;">${supplier.email}</a></td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Service Categories</td><td style="padding:10px 16px;">${categoriesStr}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Experience</td><td style="padding:10px 16px;">${supplier.yearsOfExperience || "N/A"}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Operation Area</td><td style="padding:10px 16px;">${supplier.areaOfOperation || "N/A"}</td></tr>
@@ -598,8 +612,9 @@ exports.sendAdminSupplierAlert = async (supplier) => {
       `,
     };
 
+    const recipient = targetEmail || ADMIN_EMAIL;
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin Supplier alert sent to ${ADMIN_EMAIL}: ${info.messageId}`);
+    console.log(`[EMAIL] Admin Supplier alert sent to ${recipient}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`[EMAIL] Error sending Admin Supplier alert to ${ADMIN_EMAIL}:`, err.message || err);
@@ -657,21 +672,21 @@ exports.sendCareerConfirmationEmail = async (candidate) => {
   }
 };
 
-exports.sendAdminCareerAlert = async (candidate) => {
+exports.sendAdminCareerAlert = async (candidate, targetEmail = ADMIN_EMAIL) => {
   try {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     const mailOptions = {
       from: EMAIL_FROM,
-      to: ADMIN_EMAIL,
-      subject: `💼 New Job Application: ${candidate.appliedForPosition} - ${candidate.fullName}`,
+      to: targetEmail || ADMIN_EMAIL,
+      subject: `New Job Application: ${candidate.appliedForPosition} - ${candidate.fullName}`,
       attachments: getLogoAttachment(),
       html: `
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#f1f5f9; padding:40px 15px;">
           <div style="max-width:580px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.08); border:1px solid #e2e8f0;">
             ${logoHeaderHtml}
 
-            <div style="background:#0f172a; padding:12px 25px; text-align:center;">
+            <div style="background:${THEME.deepBrass}; border-bottom:2px solid ${THEME.brightBrass}; padding:12px 25px; text-align:center;">
               <h3 style="color:#ffffff; margin:0; font-size:15px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
                 New Candidate Application
               </h3>
@@ -680,11 +695,11 @@ exports.sendAdminCareerAlert = async (candidate) => {
             <div style="padding:28px 25px;">
               <table style="width:100%; border-collapse:collapse; margin:20px 0; background:#f8fafc; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0;">
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569; width:35%;">Applicant ID</td><td style="padding:10px 16px; font-weight:700;">#JOB-${candidate.id}</td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Position Applied</td><td style="padding:10px 16px; font-weight:700; color:#1e40af;">${candidate.appliedForPosition}</td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Position Applied</td><td style="padding:10px 16px; font-weight:700; color:${THEME.deepBrass};">${candidate.appliedForPosition}</td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Candidate Name</td><td style="padding:10px 16px; font-weight:600;">${candidate.fullName}</td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${candidate.mobileNumber}">${candidate.mobileNumber}</a></td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${candidate.email}">${candidate.email}</a></td></tr>
-                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Resume Link</td><td style="padding:10px 16px;"><a href="${candidate.resumeUploadLink}" target="_blank" style="color:#1d4ed8; font-weight:600;">📄 View / Download Resume</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Mobile Number</td><td style="padding:10px 16px;"><a href="tel:${candidate.mobileNumber}" style="color:${THEME.deepBrass}; font-weight:600; text-decoration:none;">${candidate.mobileNumber}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Email</td><td style="padding:10px 16px;"><a href="mailto:${candidate.email}" style="color:${THEME.deepBrass}; text-decoration:none;">${candidate.email}</a></td></tr>
+                <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Resume Link</td><td style="padding:10px 16px;"><a href="${candidate.resumeUploadLink}" target="_blank" style="color:${THEME.deepBrass}; font-weight:700; text-decoration:none;">📄 View / Download Resume</a></td></tr>
                 <tr><td style="padding:10px 16px; font-weight:600; color:#475569;">Applied At</td><td style="padding:10px 16px; color:#64748b;">${timestamp}</td></tr>
               </table>
             </div>
@@ -697,8 +712,9 @@ exports.sendAdminCareerAlert = async (candidate) => {
       `,
     };
 
+    const recipient = targetEmail || ADMIN_EMAIL;
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin Career alert sent to ${ADMIN_EMAIL}: ${info.messageId}`);
+    console.log(`[EMAIL] Admin Career alert sent to ${recipient}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`[EMAIL] Error sending Admin Career alert to ${ADMIN_EMAIL}:`, err.message || err);

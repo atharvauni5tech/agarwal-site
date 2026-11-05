@@ -30,10 +30,6 @@ coverage
 # Bower dependency directory (https://bower.io/)
 bower_components
 
-# Config
-config/
-config/config.json
-config/*.json
 
 
 # node-waf configuration
