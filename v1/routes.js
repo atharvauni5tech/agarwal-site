@@ -5,11 +5,13 @@ var authentication = require("./authentication/routes");
 var blogs = require("./blogs/routes");
 var leads = require("./leads/routes");
 var hr = require("./hr/routes");
+var files = require("./files/routes");
 
 router.use("/auth", authentication);
 router.use("/blogs", blogs);
 router.use("/leads", leads);
 router.use("/hr", hr);
+router.use("/files", files);
 
 router.get("/test", (req, res) => {
   res.json({ success: true, message: "V1 API is working!" });

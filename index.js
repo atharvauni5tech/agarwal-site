@@ -142,6 +142,11 @@ async function startServer(options) {
   app.use(express.urlencoded({ extended: true }));
 
   // ------------------------------
+  // Static Files for Uploads
+  // ------------------------------
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+  // ------------------------------
   // Request context middleware
   // ------------------------------
   app.use((req, res, next) => {
