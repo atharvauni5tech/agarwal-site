@@ -3,9 +3,14 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-const ALLOWED_MODULES = ["blogs", "resumes", "suppliers", "documents"];
+const ALLOWED_MODULES = ["blogs", "resumes", "suppliers", "documents", "newsletter"];
 
 const MODULE_CONFIG = {
+  newsletter: {
+    maxSize: 20 * 1024 * 1024,
+    allowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],
+    allowedMimes: ["image/jpeg", "image/png", "image/webp"],
+  },
   blogs: {
     maxSize: 20 * 1024 * 1024, // 5MB
     allowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],

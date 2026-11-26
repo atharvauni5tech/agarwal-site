@@ -199,15 +199,15 @@ exports.downloadBrochure = async (req, res) => {
     console.log(`[LEADS] Brochure Download Lead #${lead.id} (${lead.fullName}) saved to database.`);
 
     // 2. Concurrently dispatch:
-    //    - Excel append ("Brocedure Download Request")
+    //    - Excel append ("Brochure Download Request")
     //    - Customer brochure confirmation email (PDF: "Your brochure for {project}")
     //    - Admin brochure alert email
-    //    - Google Sheet sync ("Brocedure Download Request")
+    //    - Google Sheet sync ("Brochure Download Request")
     const [excelSettled, customerEmailSettled, adminEmailSettled, sheetSettled] = await Promise.allSettled([
-      appendLeadToExcel(lead, {}, "Brocedure Download Request"),
+      appendLeadToExcel(lead, {}, "Brochure Download Request"),
       sendCustomerBrochureEmail(lead, project, brochureLink),
       sendAdminBrochureAlertEmail(lead),
-      appendLeadToGoogleSheet(lead, {}, "Brocedure Download Request")
+      appendLeadToGoogleSheet(lead, {}, "Brochure Download Request")
     ]);
 
     const excelResult = excelSettled.status === "fulfilled" ? excelSettled.value : { success: false };
@@ -223,7 +223,7 @@ exports.downloadBrochure = async (req, res) => {
         fullName: lead.fullName,
         email: lead.email,
         mobileNumber: lead.mobileNumber,
-        sheet: "Brocedure Download Request",
+        sheet: "Brochure Download Request",
         excelAppended: excelResult.success,
         googleSheetSynced: googleSheetResult.success,
         customerEmailDispatched: customerEmailResult.success,

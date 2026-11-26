@@ -64,8 +64,9 @@ const formatSubmissionDate = (date = new Date()) => {
 };
 
 // ================= INLINE BRANDED ATTACHMENTS =================
-// Attach assets/agarwal-group.png as <ag-brand> and assets/elevation.png as <ag-elevation>
+// Attach assets/agarwal-group.png as <ag-brand>, assets/agarwal-group-white.png as <ag-brand-white>, and assets/elevation.png as <ag-elevation>
 const BRAND_LOGO_PATH = path.join(__dirname, "../../assets/agarwal-group.png");
+const BRAND_LOGO_WHITE_PATH = path.join(__dirname, "../../assets/agarwal-group-white.png");
 const ELEVATION_PATH = path.join(__dirname, "../../assets/elevation.png");
 
 const getBrandedAttachments = () => {
@@ -75,6 +76,13 @@ const getBrandedAttachments = () => {
       filename: "agarwal-group.png",
       path: BRAND_LOGO_PATH,
       cid: "ag-brand",
+    });
+  }
+  if (fs.existsSync(BRAND_LOGO_WHITE_PATH)) {
+    attachments.push({
+      filename: "agarwal-group-white.png",
+      path: BRAND_LOGO_WHITE_PATH,
+      cid: "ag-brand-white",
     });
   }
   if (fs.existsSync(ELEVATION_PATH)) {
@@ -118,6 +126,58 @@ exports.verifyEmailConnection = async () => {
   }
 };
 exports.transporter = transporter;
+
+// ================= SEND LOGIN OTP EMAIL =================
+exports.sendOtpEmail = async (toEmail, otp) => {
+  try {
+    if (!toEmail) {
+      console.log("[EMAIL] Skipped sending OTP email: recipient email is empty.");
+      return { success: false, error: "Recipient email is empty" };
+    }
+
+    const cleanOtp = escapeHtml(String(otp));
+    const title = "Your Login Verification Code";
+    const department = "SECURITY & AUTHENTICATION";
+    const heading = "Verify Your Login";
+    const footerText = "Agarwal Group &nbsp;·&nbsp; Security & Accounts";
+
+    const contentHtml = `
+      <p style="margin:0 0 16px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">Dear User,</p>
+      <p style="margin:0 0 20px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">We received a request to sign in to your Agarwal Group account. Use the verification code below to complete your sign-in:</p>
+      <div style="margin:24px 0;text-align:center">
+        <div style="display:inline-block;padding:14px 32px;background:#f4f3ee;border:2px dashed #bc9871;border-radius:8px">
+          <span style="font:bold 32px 'Courier New',Courier,monospace;letter-spacing:8px;color:#173b36">${cleanOtp}</span>
+        </div>
+      </div>
+      <p style="margin:20px 0 0;font:14px/1.6 Arial,sans-serif;color:#6b7280">This code is valid for <strong>5 minutes</strong>. If you did not request this login code, you can safely ignore this email.</p>
+      <p style="margin:24px 0 0;font:15px/1.6 Arial;color:#53665e">Regards,<br><strong style="color:#173b36">Agarwal Group IT Security Team</strong></p>
+    `.trim();
+
+    const textContent = `Dear User,\n\nWe received a request to sign in to your Agarwal Group account. Use the verification code below to complete your sign-in:\n\nOTP: ${otp}\n\nThis code is valid for 5 minutes. If you did not request this login code, you can safely ignore this email.\n\nRegards,\nAgarwal Group IT Security Team`;
+
+    const mailOptions = {
+      from: EMAIL_FROM,
+      to: toEmail,
+      subject: "Your Login Verification Code - Agarwal Group",
+      text: textContent,
+      html: renderEmailShell({
+        title,
+        department,
+        heading,
+        contentHtml,
+        footerText,
+      }),
+      attachments: getBrandedAttachments(),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] OTP sent to ${toEmail}: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`[EMAIL] Error sending OTP to ${toEmail}:`, err.message || err);
+    return { success: false, error: err.message };
+  }
+};
 
 // ================= 1. LEAD REGISTRATION THANK YOU EMAIL =================
 // Supports templates: "general-enquiry" and "project-enquiry"
@@ -624,7 +684,7 @@ exports.sendAdminBrochureAlertEmail = async (lead, targetEmail = ADMIN_EMAIL) =>
     const submittedAt = formatSubmissionDate(lead.createdAt || new Date());
 
     const contentHtml = `
-      <p style="margin:0 0 16px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">A visitor has requested/downloaded the project brochure. Customer details have been logged in the Sales Data Excel under <strong>Brocedure Download Request</strong>.</p>
+      <p style="margin:0 0 16px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">A visitor has requested/downloaded the project brochure. Customer details have been logged in the Sales Data Excel under <strong>Brochure Download Request</strong>.</p>
       <table width="100%" cellspacing="0" cellpadding="0">
         <tr><th scope="row" align="left" valign="top" style="padding:10px 6px 10px 0;width:38%;border-top:1px solid #d7ded7;color:#53665e;font:14px Arial">Lead ID</th><td style="padding:10px 0;border-top:1px solid #d7ded7;font:15px Arial;color:#192e27;overflow-wrap:anywhere">${escapeHtml(leadId)}</td></tr>
         <tr><th scope="row" align="left" valign="top" style="padding:10px 6px 10px 0;width:38%;border-top:1px solid #d7ded7;color:#53665e;font:14px Arial">Full Name</th><td style="padding:10px 0;border-top:1px solid #d7ded7;font:15px Arial;color:#192e27;overflow-wrap:anywhere">${fullName}</td></tr>
@@ -790,3 +850,393 @@ exports.sendAdminSupplierAlert = async (supplier, targetEmail = ADMIN_EMAIL) => 
     return { success: false, error: err.message };
   }
 };
+
+exports.sendNewsletterWelcomeEmail = async (subscriber) => {
+  try {
+    if (!subscriber || !subscriber.email) {
+      console.log("[EMAIL] Skipped sending newsletter welcome email: recipient email field is empty.");
+      return { success: false, error: "Recipient email is empty" };
+    }
+
+    const rawEmail = subscriber.email;
+    const email = escapeHtml(rawEmail);
+
+    const contentHtml = `
+      <p style="margin:0 0 16px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">Dear Subscriber,</p>
+      <p style="margin:0 0 16px;font:16px/1.65 Arial,Helvetica,sans-serif;color:#283a35">Thank you for subscribing to the Agarwal Group newsletter. You will be the first to receive updates on our latest luxury residential developments, architectural insights, and exclusive pre-launch announcements.</p>
+      <p style="margin:24px 0 0;font:15px/1.6 Arial;color:#53665e">Regards,<br><strong style="color:#173b36">Agarwal Group Team</strong></p>
+    `.trim();
+
+    const textContent = `Dear Subscriber,\n\nThank you for subscribing to the Agarwal Group newsletter. You will be the first to receive updates on our latest luxury residential developments, architectural insights, and exclusive pre-launch announcements.\n\nRegards,\nAgarwal Group Team`;
+
+    const html = renderEmailShell({
+      title: "Welcome to our newsletter",
+      department: "NEWSLETTER",
+      heading: "Thank you for subscribing",
+      contentHtml,
+      footerText: "Agarwal Group &nbsp;·&nbsp; Newsletter subscriptions",
+    });
+
+    const mailOptions = {
+      from: EMAIL_FROM,
+      to: subscriber.email,
+      bcc: SALES_BCC_EMAIL,
+      subject: cleanSubject("Welcome to the Agarwal Group Newsletter"),
+      text: textContent,
+      html,
+      attachments: getBrandedAttachments(),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] Newsletter welcome email sent to ${subscriber.email}: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`[EMAIL] Error sending newsletter welcome email to ${subscriber.email}:`, err.message || err);
+    return { success: false, error: err.message };
+  }
+};
+
+// ================= 13. NEWSLETTER ISSUE BROADCAST =================
+exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
+  try {
+    if (!subscriber || !subscriber.email) {
+      return { success: false, error: "Recipient email is empty" };
+    }
+
+    const rawTitle = newsletter.title || "Agarwal Group Newsletter";
+    const rawSubtitle = newsletter.subtitle || "";
+    const rawDesc = newsletter.description || "";
+    const clientBaseUrl = (process.env.CLIENT_BASE_URL || "https://www.agarwalgroup.in").replace(/\/+$/, "");
+    const blogUrl = `${clientBaseUrl}/blogs`;
+    const unsubscribeUrl = `${clientBaseUrl}/unsubscribe?email=${encodeURIComponent(subscriber.email)}`;
+
+    // Resolve featured image
+    let featuredImageSrc = "";
+    let featuredAttachment = null;
+
+    if (newsletter.image && newsletter.image.trim()) {
+      const rawImage = newsletter.image.trim();
+      let localPath = null;
+      if (rawImage.startsWith("/uploads/") || rawImage.startsWith("uploads/")) {
+        const cleanPath = rawImage.replace(/^\/+/, "");
+        localPath = path.join(__dirname, "../../", cleanPath);
+      } else if (rawImage.includes("/uploads/")) {
+        const idx = rawImage.indexOf("/uploads/");
+        const cleanPath = rawImage.substring(idx + 1);
+        localPath = path.join(__dirname, "../../", cleanPath);
+      }
+
+      if (localPath && fs.existsSync(localPath)) {
+        featuredImageSrc = "cid:newsletter-featured";
+        featuredAttachment = {
+          filename: path.basename(localPath),
+          path: localPath,
+          cid: "newsletter-featured",
+        };
+      } else if (/^https?:\/\//i.test(rawImage)) {
+        featuredImageSrc = rawImage;
+      } else if (process.env.APP_BASE_URL && rawImage.startsWith("/")) {
+        featuredImageSrc = `${process.env.APP_BASE_URL.replace(/\/+$/, "")}${rawImage}`;
+      }
+    }
+
+    // Check if htmlContent is a complete standalone HTML document
+    const isFullHtmlDocument = (content) => {
+      if (!content || typeof content !== "string") return false;
+      const lower = content.trim().toLowerCase();
+      return (
+        lower.startsWith("<!doctype") ||
+        lower.startsWith("<html") ||
+        lower.includes("<body") ||
+        lower.includes("<head")
+      );
+    };
+
+    let html;
+
+    if (newsletter.htmlContent && isFullHtmlDocument(newsletter.htmlContent)) {
+      // Use the full custom HTML document directly to avoid nesting inside another template
+      let customHtml = newsletter.htmlContent;
+
+      // Replace placeholders
+      customHtml = customHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl);
+      customHtml = customHtml.replace(/\{\{SUBSCRIBER_EMAIL\}\}/g, encodeURIComponent(subscriber.email));
+      customHtml = customHtml.replace(/\{\{NEWSLETTER_TITLE\}\}/g, escapeHtml(rawTitle));
+      customHtml = customHtml.replace(/\{\{NEWSLETTER_BODY\}\}/g, escapeHtml(newsletter.description || ""));
+
+      // Replace data:image base64 or empty logo with reliable cid:ag-brand so it doesn't show broken in Gmail
+      customHtml = customHtml.replace(/<img([^>]*src=["'])(data:image\/[^"']+|)("[^>]*alt=["']Agarwal Group["'][^>]*)>/gi, (match, p1, p2, p3) => {
+        return `<img${p1}cid:ag-brand${p3}>`;
+      });
+
+      // Ensure the bottom links (Visit our Blog | Unsubscribe) are present
+      if (!customHtml.includes("Visit our Blog")) {
+        const bottomLinksBar = `
+        <!-- Bottom Links matching user requirement (Visit our Blog | Unsubscribe) -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 18px auto 0;">
+          <tr>
+            <td align="center" style="padding: 10px 16px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 20px;">
+              <a href="${escapeHtml(blogUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Visit our Blog</a>
+              <span style="color: #64748b; margin: 0 10px;">|</span>
+              <a href="${escapeHtml(unsubscribeUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Unsubscribe</a>
+            </td>
+          </tr>
+        </table>`;
+
+        if (customHtml.includes("</body>")) {
+          customHtml = customHtml.replace("</body>", `${bottomLinksBar}\n</body>`);
+        } else {
+          customHtml += bottomLinksBar;
+        }
+      }
+
+      html = customHtml;
+    } else {
+      // Format body paragraphs (supports custom snippet if provided)
+      const rawContent = (newsletter.htmlContent && newsletter.htmlContent.trim())
+        ? newsletter.htmlContent.trim()
+        : rawDesc;
+
+      const formattedDesc = rawContent.includes("<") && rawContent.includes(">")
+        ? rawContent
+        : rawContent
+            .split(/\n\s*\n/)
+            .map((para) => `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 24px; color: #43443C;">${escapeHtml(para.trim()).replace(/\n/g, "<br>")}</p>`)
+            .join("");
+
+      const subtitleHtml = rawSubtitle
+        ? `<p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #785D20; font-weight: 600;">${escapeHtml(rawSubtitle)}</p>`
+        : "";
+
+      const imageLink = sanitizeUrl(newsletter.imageRedirectUrl) || "https://www.agarwalgroup.in/";
+
+      const featuredImageRow = featuredImageSrc
+        ? `
+            <!-- 2. FEATURED IMAGE -->
+            <tr>
+              <td style="padding: 0; background-color: #FFFFFF;">
+                <a href="${escapeHtml(imageLink)}" target="_blank" style="display: block; text-decoration: none;">
+                  <img
+                    src="${escapeHtml(featuredImageSrc)}"
+                    alt="${escapeHtml(rawTitle)}"
+                    width="600"
+                    style="width: 100%; max-width: 600px; height: auto;"
+                  />
+                </a>
+              </td>
+            </tr>`
+        : "";
+
+      html = `
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <title>${escapeHtml(rawTitle)}</title>
+  <style type="text/css">
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      background-color: #F6F4EE !important;
+    }
+    table, td {
+      border-collapse: collapse !important;
+      mso-table-lspace: 0pt !important;
+      mso-table-rspace: 0pt !important;
+    }
+    img {
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+      display: block;
+    }
+    @media only screen and (max-width: 620px) {
+      .container {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .pad {
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+      }
+      .title {
+        font-size: 24px !important;
+        line-height: 30px !important;
+      }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F6F4EE; font-family: Arial, Helvetica, sans-serif;">
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F6F4EE;">
+    <tr>
+      <td align="center" style="padding: 24px 12px;">
+
+        <!-- Main Email Container -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" class="container" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #E3DED3; border-radius: 8px; overflow: hidden;">
+
+          <!-- 1. LOGO HEADER -->
+          <tr>
+            <td align="center" class="pad" style="padding: 24px 32px; background-color: #FFFFFF; border-bottom: 1px solid #E3DED3;">
+              <a href="https://www.agarwalgroup.in/" target="_blank" style="display: inline-block; text-decoration: none;">
+                <img
+                  src="cid:ag-brand"
+                  alt="Agarwal Group"
+                  width="212"
+                  height="40"
+                  style="width: 212px; max-width: 100%; height: auto;"
+                />
+              </a>
+            </td>
+          </tr>
+
+          ${featuredImageRow}
+
+          <!-- 3. TITLE & 4. BODY -->
+          <tr>
+            <td class="pad" style="padding: 32px; background-color: #FFFFFF;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; color: #785D20; font-weight: bold;">
+                Newsletter Update
+              </p>
+
+              <!-- TITLE -->
+              <h1 class="title" style="margin: 0 0 16px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 28px; line-height: 34px; font-weight: normal; color: #1E1F1A;">
+                ${escapeHtml(rawTitle)}
+              </h1>
+
+              <!-- BODY -->
+              <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 24px; color: #43443C;">
+                Hello Subscriber,
+              </p>
+              ${subtitleHtml}
+              <div style="margin: 0 0 16px 0; font-size: 15px; line-height: 24px; color: #43443C;">
+                ${formattedDesc}
+              </div>
+              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #43443C;">
+                Stay informed about our latest project launches, construction milestones, and exclusive offers across Vasai–Virar and Mumbai.
+              </p>
+
+              <!-- CTA BUTTON -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="border-radius: 4px; background-color: #183C2F;">
+                    <a href="https://www.agarwalgroup.in/" target="_blank" style="display: inline-block; padding: 13px 24px; font-size: 13px; line-height: 16px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #FFFFFF; text-decoration: none;">
+                      Explore Projects &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- 5. FOOTER -->
+          <tr>
+            <td align="center" class="pad" style="padding: 28px 32px; background-color: #1E1F1A; color: #D4CFC4;">
+              <a href="https://www.agarwalgroup.in/" target="_blank" style="display: inline-block; margin-bottom: 16px; text-decoration: none;">
+                <img
+                  src="cid:ag-brand-white"
+                  alt="Agarwal Group"
+                  width="170"
+                  height="32"
+                  style="width: 170px; max-width: 100%; height: auto;"
+                />
+              </a>
+
+              <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 19px; color: #B8B2A6;">
+                9, Gokul Annexe, Agarwal Gardens, Opp. Muljibhai Mehta School,<br />
+                Gokul Township, Virar (W), Maharashtra - 401303, India
+              </p>
+
+              <p style="margin: 0 0 16px 0; font-size: 12px; line-height: 18px; color: #DCBC7C;">
+                <a href="tel:+918408008001" style="color: #DCBC7C; text-decoration: none;">+91 84080 08001</a>
+                &nbsp;&middot;&nbsp;
+                <a href="mailto:sales@agarwalrealties.com" style="color: #DCBC7C; text-decoration: none;">sales@agarwalrealties.com</a>
+              </p>
+
+              <p style="margin: 0; font-size: 11px; line-height: 18px; color: #8F897D;">
+                &copy; 2026 Agarwal Group. All rights reserved. &middot;
+                <a href="${escapeHtml(unsubscribeUrl)}" style="color: #DCBC7C; text-decoration: underline;">Unsubscribe</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Main Email Container -->
+
+        <!-- Bottom Links matching user requirement (Visit our Blog | Unsubscribe) -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin-top: 18px;">
+          <tr>
+            <td align="center" style="padding: 10px 16px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 20px;">
+              <a href="${escapeHtml(blogUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Visit our Blog</a>
+              <span style="color: #64748b; margin: 0 10px;">|</span>
+              <a href="${escapeHtml(unsubscribeUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Unsubscribe</a>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+      `.trim();
+    }
+
+    const plainDesc = rawDesc.replace(/<[^>]*>/g, "").trim();
+    const textContent = `${rawTitle}\n${rawSubtitle ? rawSubtitle + "\n" : ""}\nHello Subscriber,\n\n${plainDesc}\n\nStay informed about our latest project launches, construction milestones, and exclusive offers across Vasai–Virar and Mumbai.\n\nExplore Projects: https://www.agarwalgroup.in/\n\nUnsubscribe: ${unsubscribeUrl}`;
+
+    const attachments = getBrandedAttachments();
+    if (featuredAttachment) {
+      attachments.push(featuredAttachment);
+    }
+
+    const mailOptions = {
+      from: EMAIL_FROM,
+      to: subscriber.email,
+      subject: cleanSubject(rawTitle),
+      text: textContent,
+      html,
+      attachments,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[NEWSLETTER BROADCAST] Sent to ${subscriber.email}: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`[NEWSLETTER BROADCAST] Error sending to ${subscriber.email}:`, err.message || err);
+    return { success: false, error: err.message };
+  }
+};
+
+exports.sendNewsletterBroadcast = async (newsletter, subscribers = []) => {
+  if (!Array.isArray(subscribers) || subscribers.length === 0) {
+    console.log("[NEWSLETTER BROADCAST] No active subscribers to broadcast to.");
+    return { total: 0, sent: 0, failed: 0 };
+  }
+
+  console.log(`[NEWSLETTER BROADCAST] Broadcasting issue #${newsletter.id} ("${newsletter.title}") to ${subscribers.length} subscriber(s)...`);
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const subscriber of subscribers) {
+    try {
+      const res = await exports.sendNewsletterIssueEmail(subscriber, newsletter);
+      if (res && res.success) sent++;
+      else failed++;
+    } catch (err) {
+      failed++;
+    }
+  }
+
+  console.log(`[NEWSLETTER BROADCAST] Broadcast complete: ${sent} sent, ${failed} failed out of ${subscribers.length} total.`);
+  return { total: subscribers.length, sent, failed };
+};
+

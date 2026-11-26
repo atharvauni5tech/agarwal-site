@@ -11,7 +11,7 @@ const HR_EXCEL_PATH = path.join(EXPORTS_DIR, "hr_data.xlsx");
  * Appends lead data into the specified worksheet of sales_data.xlsx
  * @param {Object} lead - Lead instance
  * @param {Object} leadDetail - Extended lead details (optional)
- * @param {string} sheetName - "Customer Registration" | "Immediate Callback Request" | "Brocedure Download Request"
+ * @param {string} sheetName - "Customer Registration" | "Immediate Callback Request" | "Brochure Download Request"
  */
 exports.appendLeadToExcel = async (lead, leadDetail = {}, sheetName = "Customer Registration") => {
   try {
@@ -24,7 +24,11 @@ exports.appendLeadToExcel = async (lead, leadDetail = {}, sheetName = "Customer 
       : new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     let rowData;
-    if (sheetName === "Immediate Callback Request" || sheetName === "Brocedure Download Request") {
+    if (
+      sheetName === "Immediate Callback Request" ||
+      sheetName === "Brochure Download Request" ||
+      sheetName === "Brocedure Download Request"
+    ) {
       rowData = {
         "Lead ID": lead.id,
         "Date": dateFormatted,
