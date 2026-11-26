@@ -95,6 +95,26 @@ const getBrandedAttachments = () => {
   return attachments;
 };
 
+// Newsletter-specific branded attachments (excludes elevation.png building attachment)
+const getNewsletterBrandedAttachments = () => {
+  const attachments = [];
+  if (fs.existsSync(BRAND_LOGO_PATH)) {
+    attachments.push({
+      filename: "agarwal-group.png",
+      path: BRAND_LOGO_PATH,
+      cid: "ag-brand",
+    });
+  }
+  if (fs.existsSync(BRAND_LOGO_WHITE_PATH)) {
+    attachments.push({
+      filename: "agarwal-group-white.png",
+      path: BRAND_LOGO_WHITE_PATH,
+      cid: "ag-brand-white",
+    });
+  }
+  return attachments;
+};
+
 // ================= HTML TEMPLATE SHELL =================
 // Mirrors the exact Agarwal Group branded template markup
 const renderEmailShell = ({ title, department, heading, contentHtml, footerText }) => `
@@ -913,6 +933,7 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
     // Resolve featured image
     let featuredImageSrc = "";
     let featuredAttachment = null;
+    const extraAttachments = [];
 
     if (newsletter.image && newsletter.image.trim()) {
       const rawImage = newsletter.image.trim();
@@ -933,6 +954,7 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
           path: localPath,
           cid: "newsletter-featured",
         };
+        extraAttachments.push(featuredAttachment);
       } else if (/^https?:\/\//i.test(rawImage)) {
         featuredImageSrc = rawImage;
       } else if (process.env.APP_BASE_URL && rawImage.startsWith("/")) {
@@ -940,7 +962,7 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
       }
     }
 
-    // Check if htmlContent is a complete standalone HTML document
+    // Check if htmlContent is a complete standalone HTML document or complete template
     const isFullHtmlDocument = (content) => {
       if (!content || typeof content !== "string") return false;
       const lower = content.trim().toLowerCase();
@@ -948,7 +970,8 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
         lower.startsWith("<!doctype") ||
         lower.startsWith("<html") ||
         lower.includes("<body") ||
-        lower.includes("<head")
+        lower.includes("<head") ||
+        (lower.includes("<table") && (lower.includes("newsletter update") || lower.includes("agarwal group") || lower.includes("#1e1f1a")))
       );
     };
 
@@ -964,31 +987,45 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
       customHtml = customHtml.replace(/\{\{NEWSLETTER_TITLE\}\}/g, escapeHtml(rawTitle));
       customHtml = customHtml.replace(/\{\{NEWSLETTER_BODY\}\}/g, escapeHtml(newsletter.description || ""));
 
-      // Replace data:image base64 or empty logo with reliable cid:ag-brand so it doesn't show broken in Gmail
-      customHtml = customHtml.replace(/<img([^>]*src=["'])(data:image\/[^"']+|)("[^>]*alt=["']Agarwal Group["'][^>]*)>/gi, (match, p1, p2, p3) => {
-        return `<img${p1}cid:ag-brand${p3}>`;
+      customHtml = customHtml.replace(/<img\b([^>]*)>/gi, (match, attrs) => {
+        const isAgarwalLogo = /alt=[\"']Agarwal Group[\"']/i.test(attrs);
+        if (isAgarwalLogo) {
+          const isFooter = /width=[\"']170[\"']/i.test(attrs) || /height=[\"']32[\"']/i.test(attrs) || /170px/i.test(attrs);
+          const targetCid = isFooter ? "cid:ag-brand-white" : "cid:ag-brand";
+          if (/src=[\"'][^\"']*[\"']/i.test(attrs)) {
+            return `<img${attrs.replace(/src=[\"'][^\"']*[\"']/i, `src="${targetCid}"`)}>`;
+          }
+          return `<img src="${targetCid}"${attrs}>`;
+        }
+
+        // Convert any local /uploads/ image into an inline CID attachment so it never breaks in Gmail
+        const srcMatch = attrs.match(/src=[\"']([^\"']+)[\"']/i);
+        if (srcMatch) {
+          const srcVal = srcMatch[1];
+          if (srcVal.includes("/uploads/")) {
+            const idx = srcVal.indexOf("/uploads/");
+            const cleanPath = srcVal.substring(idx + 1);
+            const localFilePath = path.join(__dirname, "../../", cleanPath);
+            if (fs.existsSync(localFilePath)) {
+              let att = extraAttachments.find((a) => a.path === localFilePath);
+              if (!att) {
+                att = {
+                  filename: path.basename(localFilePath),
+                  path: localFilePath,
+                  cid: `newsletter-img-${extraAttachments.length + 1}`,
+                };
+                extraAttachments.push(att);
+              }
+              return `<img${attrs.replace(/src=[\"'][^\"']*[\"']/i, `src="cid:${att.cid}"`)}>`;
+            }
+          }
+        }
+
+        return match;
       });
 
-      // Ensure the bottom links (Visit our Blog | Unsubscribe) are present
-      if (!customHtml.includes("Visit our Blog")) {
-        const bottomLinksBar = `
-        <!-- Bottom Links matching user requirement (Visit our Blog | Unsubscribe) -->
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 18px auto 0;">
-          <tr>
-            <td align="center" style="padding: 10px 16px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 20px;">
-              <a href="${escapeHtml(blogUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Visit our Blog</a>
-              <span style="color: #64748b; margin: 0 10px;">|</span>
-              <a href="${escapeHtml(unsubscribeUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Unsubscribe</a>
-            </td>
-          </tr>
-        </table>`;
-
-        if (customHtml.includes("</body>")) {
-          customHtml = customHtml.replace("</body>", `${bottomLinksBar}\n</body>`);
-        } else {
-          customHtml += bottomLinksBar;
-        }
-      }
+      // Strip any "Visit our Blog" blocks if present
+      customHtml = customHtml.replace(/<table\b[^>]*>[\s\S]*?Visit our Blog[\s\S]*?<\/table>/gi, "");
 
       html = customHtml;
     } else {
@@ -1169,17 +1206,6 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
         </table>
         <!-- /Main Email Container -->
 
-        <!-- Bottom Links matching user requirement (Visit our Blog | Unsubscribe) -->
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin-top: 18px;">
-          <tr>
-            <td align="center" style="padding: 10px 16px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 20px;">
-              <a href="${escapeHtml(blogUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Visit our Blog</a>
-              <span style="color: #64748b; margin: 0 10px;">|</span>
-              <a href="${escapeHtml(unsubscribeUrl)}" target="_blank" style="color: #1a56db; text-decoration: underline; font-weight: 500;">Unsubscribe</a>
-            </td>
-          </tr>
-        </table>
-
       </td>
     </tr>
   </table>
@@ -1192,10 +1218,7 @@ exports.sendNewsletterIssueEmail = async (subscriber, newsletter) => {
     const plainDesc = rawDesc.replace(/<[^>]*>/g, "").trim();
     const textContent = `${rawTitle}\n${rawSubtitle ? rawSubtitle + "\n" : ""}\nHello Subscriber,\n\n${plainDesc}\n\nStay informed about our latest project launches, construction milestones, and exclusive offers across Vasai–Virar and Mumbai.\n\nExplore Projects: https://www.agarwalgroup.in/\n\nUnsubscribe: ${unsubscribeUrl}`;
 
-    const attachments = getBrandedAttachments();
-    if (featuredAttachment) {
-      attachments.push(featuredAttachment);
-    }
+    const attachments = getNewsletterBrandedAttachments().concat(extraAttachments);
 
     const mailOptions = {
       from: EMAIL_FROM,
