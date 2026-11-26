@@ -5,7 +5,8 @@ const {
   sendLeadThankYouEmail,
   sendCallbackRequestEmail,
   sendAdminCallbackAlertEmail,
-  sendAdminBrochureAlertEmail
+  sendAdminBrochureAlertEmail,
+  sendCustomerBrochureEmail
 } = require("../services/emailService");
 const { appendLeadToGoogleSheet } = require("../services/googleSheetService");
 
@@ -126,7 +127,7 @@ exports.storeLead = async (req, res) => {
 // -------------------------------------------------------------
 exports.requestCallback = async (req, res) => {
   try {
-    const { fullName, email, mobileNumber } = req.body;
+    const { fullName, email, mobileNumber, project } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
     const lead = await Lead.create({
@@ -141,11 +142,11 @@ exports.requestCallback = async (req, res) => {
     // 2. Concurrently dispatch:
     //    - Excel append ("Immediate Callback Request")
     //    - Customer callback confirmation email
-    //    - Admin callback alert email (to atharva.pandharikar@uni5.tech)
+    //    - Admin callback alert email
     //    - Google Sheet sync ("Immediate Callback Request")
     const [excelSettled, customerEmailSettled, adminEmailSettled, sheetSettled] = await Promise.allSettled([
       appendLeadToExcel(lead, {}, "Immediate Callback Request"),
-      sendCallbackRequestEmail(lead),
+      sendCallbackRequestEmail(lead, project),
       sendAdminCallbackAlertEmail(lead),
       appendLeadToGoogleSheet(lead, {}, "Immediate Callback Request")
     ]);
@@ -180,11 +181,11 @@ exports.requestCallback = async (req, res) => {
 };
 
 // -------------------------------------------------------------
-// POST /v1/leads/download-brochure (Brocedure Download Request)
+// POST /v1/leads/download-brochure (Brochure Download Request)
 // -------------------------------------------------------------
 exports.downloadBrochure = async (req, res) => {
   try {
-    const { fullName, email, mobileNumber } = req.body;
+    const { fullName, email, mobileNumber, project, brochureLink } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Create Lead in Lead model only
@@ -199,21 +200,24 @@ exports.downloadBrochure = async (req, res) => {
 
     // 2. Concurrently dispatch:
     //    - Excel append ("Brocedure Download Request")
-    //    - Admin brochure alert email ONLY (NO email sent to the lead as instructed)
+    //    - Customer brochure confirmation email (PDF: "Your brochure for {project}")
+    //    - Admin brochure alert email
     //    - Google Sheet sync ("Brocedure Download Request")
-    const [excelSettled, adminEmailSettled, sheetSettled] = await Promise.allSettled([
+    const [excelSettled, customerEmailSettled, adminEmailSettled, sheetSettled] = await Promise.allSettled([
       appendLeadToExcel(lead, {}, "Brocedure Download Request"),
+      sendCustomerBrochureEmail(lead, project, brochureLink),
       sendAdminBrochureAlertEmail(lead),
       appendLeadToGoogleSheet(lead, {}, "Brocedure Download Request")
     ]);
 
     const excelResult = excelSettled.status === "fulfilled" ? excelSettled.value : { success: false };
+    const customerEmailResult = customerEmailSettled.status === "fulfilled" ? customerEmailSettled.value : { success: false };
     const adminEmailResult = adminEmailSettled.status === "fulfilled" ? adminEmailSettled.value : { success: false };
     const googleSheetResult = sheetSettled.status === "fulfilled" ? sheetSettled.value : { success: false };
 
     return res.status(201).json({
       success: true,
-      message: "Brochure request received successfully.",
+      message: "Brochure request received successfully. A download link has been emailed to you.",
       data: {
         id: lead.id,
         fullName: lead.fullName,
@@ -222,6 +226,7 @@ exports.downloadBrochure = async (req, res) => {
         sheet: "Brocedure Download Request",
         excelAppended: excelResult.success,
         googleSheetSynced: googleSheetResult.success,
+        customerEmailDispatched: customerEmailResult.success,
         adminEmailDispatched: adminEmailResult.success
       }
     });
